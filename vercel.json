@@ -1,9 +1,5 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
-  ],
-  "env": {
-    "VITE_NEWS_API_KEY": "@vite_news_api_key",
-    "VITE_AI_TOKEN": "@vite_ai_token"
-  }
+  ]
 }
