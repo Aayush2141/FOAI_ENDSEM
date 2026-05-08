@@ -1,6 +1,8 @@
 /**
  * Vercel Serverless Function: /api/iss
- * Proxies ISS-related requests from open-notify.org to avoid CORS / HTTP issues.
+ *
+ * Proxies ISS requests so the browser never calls HTTP directly
+ * (Vercel is HTTPS; browsers block HTTP fetch from HTTPS pages).
  *
  * Query params:
  *   endpoint — "position" | "astronauts"
@@ -12,10 +14,9 @@ export default async function handler(req, res) {
 
   const { endpoint = 'position' } = req.query;
 
+  // open-notify is HTTP-only but that's fine server-side (Node has no mixed-content rules)
   const urls = {
-    // wheretheiss.at: HTTPS, CORS-enabled, returns lat/lon/velocity/altitude
-    position: 'https://api.wheretheiss.at/v1/satellites/25544',
-    // open-notify: astronaut list (HTTP only — HTTPS returns empty)
+    position:   'http://api.open-notify.org/iss-now.json',
     astronauts: 'http://api.open-notify.org/astros.json',
   };
 
@@ -25,17 +26,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const upstream = await fetch(targetUrl);
+    const upstream = await fetch(targetUrl, { signal: AbortSignal.timeout(8000) });
     if (!upstream.ok) {
       return res.status(502).json({ error: `Upstream error: ${upstream.status}` });
     }
     const data = await upstream.json();
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-store'); // ISS data must always be fresh
+    res.setHeader('Cache-Control', 'no-store');
     return res.json(data);
   } catch (err) {
-    console.error('ISS handler error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('[api/iss] error:', err.message);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }

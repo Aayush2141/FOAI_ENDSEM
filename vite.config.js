@@ -12,6 +12,18 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       proxy: {
+        // ── ISS proxy ──────────────────────────────────────────────────────
+        // Dev: /api/iss?endpoint=position   → open-notify iss-now.json
+        //      /api/iss?endpoint=astronauts → open-notify astros.json
+        // Prod: handled by api/iss.js Vercel serverless function
+        '/api/iss': {
+          target: 'http://api.open-notify.org',
+          changeOrigin: true,
+          rewrite: (path) => {
+            if (path.includes('endpoint=astronauts')) return '/astros.json';
+            return '/iss-now.json'; // default: position
+          },
+        },
         // ── News proxy ─────────────────────────────────────────────────────
         // Dev: /api/news?category=… → gnews.io/api/v4/top-headlines
         //      /api/news?q=…        → gnews.io/api/v4/search

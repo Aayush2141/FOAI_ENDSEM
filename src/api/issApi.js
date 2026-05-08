@@ -1,40 +1,37 @@
 /**
  * ISS API module
  *
- * Position + astronauts: api.open-notify.org (no rate limit, CORS-enabled)
- * Reverse geocoding: Nominatim (openstreetmap.org)
+ * All calls go through /api/iss (Vercel serverless proxy) so that:
+ *  - In production (HTTPS) the browser never makes an HTTP request (mixed-content blocked).
+ *  - In development the Vite dev-server proxy (vite.config.js) forwards /api/iss → the handler.
  *
- * open-notify position response:
- *   { iss_position: { latitude, longitude }, timestamp, message }
- * open-notify astronauts response:
- *   { people: [{ name, craft }], number, message }
+ * open-notify response shapes:
+ *   position:    { iss_position: { latitude, longitude }, timestamp, message }
+ *   astronauts:  { people: [{ name, craft }], number, message }
  */
-
-const OPEN_NOTIFY = 'http://api.open-notify.org';
 
 /**
- * Fetch current ISS position.
+ * Fetch current ISS position via serverless proxy.
  * Returns: { latitude, longitude, timestamp }
- * Speed is calculated by the hook via Haversine between two samples.
  */
 export async function fetchISSPosition() {
-  const res = await fetch(`${OPEN_NOTIFY}/iss-now.json`);
+  const res = await fetch('/api/iss?endpoint=position');
   if (!res.ok) throw new Error(`ISS position fetch failed: ${res.status}`);
   const d = await res.json();
 
   return {
-    latitude: parseFloat(d.iss_position.latitude),
+    latitude:  parseFloat(d.iss_position.latitude),
     longitude: parseFloat(d.iss_position.longitude),
     timestamp: d.timestamp, // Unix seconds
   };
 }
 
 /**
- * Fetch people currently in space.
+ * Fetch people currently in space via serverless proxy.
  * Returns: { number, people: [{ name, craft }] }
  */
 export async function fetchAstronauts() {
-  const res = await fetch(`${OPEN_NOTIFY}/astros.json`);
+  const res = await fetch('/api/iss?endpoint=astronauts');
   if (!res.ok) throw new Error(`Astronauts fetch failed: ${res.status}`);
   const data = await res.json();
   return {
@@ -55,12 +52,12 @@ export async function reverseGeocode(lat, lon) {
     const data = await res.json();
     const addr = data.address || {};
     return (
-      addr.city ||
-      addr.town ||
-      addr.village ||
-      addr.county ||
-      addr.state ||
-      addr.country ||
+      addr.city     ||
+      addr.town     ||
+      addr.village  ||
+      addr.county   ||
+      addr.state    ||
+      addr.country  ||
       data.display_name?.split(',')[0] ||
       'Unknown'
     );
